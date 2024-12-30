@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>网吧上机管理系统</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding: 20px;
+            background-image: url('images/bjt.jpg'); /* 本地图片 */
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: #ffffff;
+        }
+        h1, h2 {
+            color: #ffffff;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        .form-container {
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            color: #000000;
+        }
+        .table {
+            margin-bottom: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            color: #000000;
+        }
+        .btn {
+            margin: 5px;
+        }
+        .alert {
+            margin-top: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            color: #000000;
+        }
+        .table-dark {
+            background-color: rgba(52, 58, 64, 0.8);
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 class="text-center my-4">网吧上机管理系统</h1>
+
+
+    <h2>座位管理</h2>
+    <table class="table table-bordered table-hover">
+        <thead class="table-dark">
+        <tr>
+            <th>座位ID</th>
+            <th>状态</th>
+            <th>操作</th>
+        </tr>
+        </thead>
+        <tbody id="seatTableBody">
+        </tbody>
+    </table>
+
+
+    <h2>小卖部管理</h2>
+    <div class="form-container">
+        <button class="btn btn-primary" onclick="showAddSnackForm()">添加商品</button>
+        <button class="btn btn-success" onclick="showSellSnackForm()">售出商品</button>
+    </div>
+    <table class="table table-bordered table-hover">
+        <thead class="table-dark">
+        <tr>
+            <th>商品ID</th>
+            <th>名称</th>
+            <th>售价</th>
+            <th>收购价</th>
+            <th>库存</th>
+        </tr>
+        </thead>
+        <tbody id="snackTableBody">
+        </tbody>
+    </table>
+
+
+    <div id="addSnackForm" class="form-container" style="display: none;">
+        <h3>添加商品</h3>
+        <div class="mb-3">
+            <label for="name" class="form-label">名称:</label>
+            <input type="text" class="form-control" id="name" required>
+        </div>
+        <div class="mb-3">
+            <label for="price" class="form-label">售价:</label>
+            <input type="number" class="form-control" id="price" step="0.01" required>
+        </div>
+        <div class="mb-3">
+            <label for="purchasePrice" class="form-label">收购价:</label>
+            <input type="number" class="form-control" id="purchasePrice" step="0.01" required>
+        </div>
+        <div class="mb-3">
+            <label for="stock" class="form-label">库存:</label>
+            <input type="number" class="form-control" id="stock" required>
+        </div>
+        <button class="btn btn-primary" onclick="addSnack()">提交</button>
+        <button class="btn btn-secondary" onclick="hideAddSnackForm()">取消</button>
+    </div>
+
+
+    <div id="sellSnackForm" class="form-container" style="display: none;">
+        <h3>售出商品</h3>
+        <div class="mb-3">
+            <label for="snackId" class="form-label">商品ID:</label>
+            <input type="number" class="form-control" id="snackId" required>
+        </div>
+        <div class="mb-3">
+            <label for="seatId" class="form-label">座位ID:</label>
+            <input type="number" class="form-control" id="seatId" required>
+        </div>
+        <div class="mb-3">
+            <label for="quantity" class="form-label">数量:</label>
+            <input type="number" class="form-control" id="quantity" required>
+        </div>
+        <button class="btn btn-success" onclick="sellSnack()">提交</button>
+        <button class="btn btn-secondary" onclick="hideSellSnackForm()">取消</button>
+    </div>
+
+
+    <h2>财务报表</h2>
+    <div class="form-container">
+        <button class="btn btn-info" onclick="loadDailyReport()">生成日报表</button>
+        <button class="btn btn-info" onclick="loadWeeklyReport()">生成周报表</button>
+        <button class="btn btn-info" onclick="loadMonthlyReport()">生成月报表</button>
+    </div>
+    <div id="reportResult" class="alert alert-info">
+
+    </div>
+
+
+    <h2>累计收益</h2>
+    <div id="totalIncomeResult" class="alert alert-success">
+
+    </div>
+    <button class="btn btn-warning" onclick="loadTotalIncome()">刷新累计收益</button>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // 加载座位数据
+    function loadSeats() {
+        fetch('/seats')
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.querySelector('#seatTableBody');
+                tbody.innerHTML = '';
+                data.forEach(seat => {
+                    const row = `<tr>
+                        <td>${seat.seat_id}</td>
+                        <td>${seat.status}</td>
+                        <td>
+                            ${seat.status === '空闲' ? `<button class="btn btn-sm btn-success" onclick="startUsingSeat(${seat.seat_id})">上机</button>` : ''}
+                            ${seat.status === '使用中' ? `<button class="btn btn-sm btn-danger" onclick="stopUsingSeat(${seat.seat_id})">下机</button>` : ''}
+                        </td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+            });
+    }
+
+    // 上机
+    function startUsingSeat(seatId) {
+        fetch(`/seats/${seatId}/start`, { method: 'POST' })
+            .then(response => response.json())
+            .then(() => {
+                alert('上机成功！');
+                loadSeats();
+            });
+    }
+
+    // 下机
+    function stopUsingSeat(seatId) {
+        fetch(`/seats/${seatId}/stop`, { method: 'POST' })
+            .then(response => response.json())
+            .then(() => {
+                fetch(`/seats/${seatId}/cost`)
+                    .then(response => response.json())
+                    .then(cost => {
+                        alert(`下机成功！费用：${cost}元`);
+                        loadSeats();
+                    });
+            });
+    }
+
+    // 加载小卖部商品数据
+    function loadSnacks() {
+        fetch('/snacks')
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.querySelector('#snackTableBody');
+                tbody.innerHTML = '';
+                data.forEach(snack => {
+                    const row = `<tr>
+                        <td>${snack.snack_id}</td>
+                        <td>${snack.name}</td>
+                        <td>${snack.price}</td>
+                        <td>${snack.purchase_price}</td>
+                        <td>${snack.stock}</td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+            });
+    }
+
+    // 显示添加商品表单
+    function showAddSnackForm() {
+        document.getElementById('addSnackForm').style.display = 'block';
+    }
+
+    // 隐藏添加商品表单
+    function hideAddSnackForm() {
+        document.getElementById('addSnackForm').style.display = 'none';
+    }
+
+    // 添加商品
+    function addSnack() {
+        const name = document.getElementById('name').value;
+        const price = parseFloat(document.getElementById('price').value);
+        const purchasePrice = parseFloat(document.getElementById('purchasePrice').value);
+        const stock = parseInt(document.getElementById('stock').value);
+
+        const snack = { name, price, purchase_price: purchasePrice, stock };
+
+        fetch('/snacks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(snack)
+        })
+            .then(response => response.json())
+            .then(() => {
+                alert('商品添加成功！');
+                hideAddSnackForm();
+                loadSnacks();
+            });
+    }
+
+    // 显示售出商品表单
+    function showSellSnackForm() {
+        document.getElementById('sellSnackForm').style.display = 'block';
+    }
+
+    // 隐藏售出商品表单
+    function hideSellSnackForm() {
+        document.getElementById('sellSnackForm').style.display = 'none';
+    }
+
+    // 售出商品
+    function sellSnack() {
+        const snackId = parseInt(document.getElementById('snackId').value);
+        const seatId = parseInt(document.getElementById('seatId').value);
+        const quantity = parseInt(document.getElementById('quantity').value);
+
+        fetch(`/snacks/${snackId}/sell?quantity=${quantity}&seatId=${seatId}`, {
+            method: 'POST'
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => { throw new Error(error); });
+                }
+                return response.json();
+            })
+            .then(() => {
+                alert('商品售出成功！');
+                hideSellSnackForm();
+                loadSnacks();
+            })
+            .catch(error => {
+                alert('售出失败: ' + error.message);
+            });
+    }
+
+    // 生成日报表
+    function loadDailyReport() {
+        const date = prompt("请输入日期（格式：YYYY-MM-DD）：");
+        if (date) {
+            fetch(`/billing-reports/daily?date=${date}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('reportResult').innerHTML = `
+                        <p>日期: ${data.reportDate}</p>
+                        <p>总收入: ${data.totalIncome}</p>
+                        <p>座位收入: ${data.seatIncome}</p>
+                        <p>小卖部收入: ${data.snackIncome}</p>
+                    `;
+                });
+        }
+    }
+
+    // 生成周报表
+    function loadWeeklyReport() {
+        const startDate = prompt("请输入开始日期（格式：YYYY-MM-DD）：");
+        const endDate = prompt("请输入结束日期（格式：YYYY-MM-DD）：");
+        if (startDate && endDate) {
+            fetch(`/billing-reports/weekly?startDate=${startDate}&endDate=${endDate}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('reportResult').innerHTML = `
+                        <p>日期: ${data.reportDate}</p>
+                        <p>总收入: ${data.totalIncome}</p>
+                        <p>座位收入: ${data.seatIncome}</p>
+                        <p>小卖部收入: ${data.snackIncome}</p>
+                    `;
+                });
+        }
+    }
+
+    // 生成月报表
+    function loadMonthlyReport() {
+        const year = prompt("请输入年份：");
+        const month = prompt("请输入月份：");
+        if (year && month) {
+            fetch(`/billing-reports/monthly?year=${year}&month=${month}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('reportResult').innerHTML = `
+                        <p>日期: ${data.reportDate}</p>
+                        <p>总收入: ${data.totalIncome}</p>
+                        <p>座位收入: ${data.seatIncome}</p>
+                        <p>小卖部收入: ${data.snackIncome}</p>
+                    `;
+                });
+        }
+    }
+
+    // 加载累计收益
+    function loadTotalIncome() {
+        fetch('/financial-reports/total-income')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('网络响应失败');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('返回的数据:', data); // 调试信息
+                if (data !== undefined) {
+                    document.getElementById('totalIncomeResult').innerHTML = `
+                        <p>累计收益: ${data}元</p>
+                    `;
+                } else {
+                    console.error('累计收益数据格式不正确:', data);
+                }
+            })
+            .catch(error => {
+                console.error('加载累计收益失败:', error);
+            });
+    }
+
+    // 初始化加载数据
+    loadSeats();
+    loadSnacks();
+    loadTotalIncome();
+</script>
+</body>
+</html>
